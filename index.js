@@ -1,5 +1,7 @@
+require('dotenv').config();
 const express = require('express');
 const morgan = require('morgan');
+const Person = require('./models/person');
 
 const app = express();
 
@@ -14,59 +16,20 @@ app.use(
   morgan(':method :url :status :res[content-length] - :response-time ms :body')
 );
 
-let phoneBookEntries = [
-  {
-    id: 1,
-    name: 'Arto Hellas',
-    number: '040-123456',
-  },
-  {
-    id: 2,
-    name: 'Ada Lovelace',
-    number: '39-44-5323523',
-  },
-  {
-    id: 3,
-    name: 'Dan Abramov',
-    number: '12-43-234345',
-  },
-  {
-    id: 4,
-    name: 'Mary Poppendieck',
-    number: '39-23-6423122',
-  },
-];
-
 app.get('/api/persons', (req, res) => {
-  res.json(phoneBookEntries);
+  Person.find({}).then((people) => {
+    res.json(people);
+  });
 });
 
-function findPhoneBookEntryByID(id) {
-  const phoneBookEntry = phoneBookEntries.find((phoneBookEntry) => {
-    return phoneBookEntry.id === id;
-  });
-
-  return phoneBookEntry;
-}
-
-function isNameAlreadyUsed(name) {
-  return phoneBookEntries.some((phoneBookEntry) => {
-    return phoneBookEntry.name === name;
-  });
-}
-
-function generateRandomId() {
-  return Math.floor(Math.random() * 100000);
-}
-
 app.get('/api/persons/:id', (req, res) => {
-  const phoneBookEntry = findPhoneBookEntryByID(Number(req.params.id));
-
-  if (!phoneBookEntry) {
-    return res.status(404).send('Phonebook entry not found');
-  }
-
-  res.json(phoneBookEntry);
+  Person.findById(req.params.id)
+    .then((person) => {
+      res.json(person);
+    })
+    .catch((err) => {
+      console.error(err.message);
+    });
 });
 
 app.post('/api/persons', (req, res) => {
@@ -76,40 +39,64 @@ app.post('/api/persons', (req, res) => {
     return res.status(400).json({ error: 'Missing name or number' });
   }
 
-  if (isNameAlreadyUsed(name)) {
-    return res.status(409).json({ error: 'name must be unique' });
-  }
-
-  phoneBookEntries.find((phoneBookEntry) => {
-    return phoneBookEntry.name === name;
-  });
-
-  const newPhoneBookEntry = {
+  const person = new Person({
     name,
     number,
-    id: generateRandomId(),
-  };
-
-  phoneBookEntries.push(newPhoneBookEntry);
-  res.status(201).json(newPhoneBookEntry);
-});
-
-app.delete('/api/persons/:id', (req, res) => {
-  const id = Number(req.params.id);
-
-  phoneBookEntries = phoneBookEntries.filter((phoneBookEntry) => {
-    return phoneBookEntry.id !== id;
   });
 
-  res.status(204).end();
+  person.save().then((savedPerson) => {
+    res.status(201).json(savedPerson);
+  });
+});
+
+app.put('/api/persons/:id', (req, res) => {
+  const { id } = req.params;
+
+  const { name, number } = req.body;
+
+  const person = {
+    name,
+    number,
+  };
+
+  Person.findByIdAndUpdate(id, person, { new: true })
+    .then((updatedPerson) => {
+      res.json(updatedPerson);
+    })
+    .catch((error) => next(error));
+});
+
+app.delete('/api/persons/:id', (req, res, next) => {
+  Person.findByIdAndRemove(req.params.id)
+    .then(() => {
+      res.status(204).end();
+    })
+    .catch((error) => {
+      next(error);
+    });
 });
 
 app.get('/info', (req, res) => {
-  console.log(req);
-  res.send(`
-    <p>Phonebook has info for ${phoneBookEntries.length} people</p>
+  Person.countDocuments({}).then((peopleCount) => {
+    res.send(`
+    <p>Phonebook has info for ${peopleCount} people</p>
     <p>${new Date()}</p>
   `);
+  });
+});
+
+app.use((req, res) => {
+  res.status(404).send({ error: 'unknown endpoint' });
+});
+
+app.use((error, req, res, next) => {
+  console.error(error.message);
+
+  if (error.name === 'CastError') {
+    return res.status(400).send({ error: 'Invalid id format' });
+  }
+
+  next(error);
 });
 
 const PORT = process.env.PORT || 3001;
