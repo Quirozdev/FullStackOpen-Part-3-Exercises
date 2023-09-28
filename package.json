@@ -8,6 +8,7 @@
     "dev": "nodemon index.js",
     "build:ui": "rm -rf dist && cd ./frontend/ && npm run build && cp -r dist ../.",
     "deploy:full": "npm run build:ui && git add . && git commit -m uibuild && git push origin main",
+    "lint": "eslint .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -20,6 +21,7 @@
     "morgan": "^1.10.0"
   },
   "devDependencies": {
+    "eslint": "^8.50.0",
     "nodemon": "^3.0.1"
   }
 }

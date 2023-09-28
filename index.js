@@ -8,7 +8,7 @@ const app = express();
 app.use(express.static('dist'));
 app.use(express.json());
 
-morgan.token('body', (req, res) => {
+morgan.token('body', (req) => {
   return JSON.stringify(req.body);
 });
 
