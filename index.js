@@ -32,24 +32,23 @@ app.get('/api/persons/:id', (req, res) => {
     });
 });
 
-app.post('/api/persons', (req, res) => {
+app.post('/api/persons', (req, res, next) => {
   const { name, number } = req.body;
-
-  if (!name || !number) {
-    return res.status(400).json({ error: 'Missing name or number' });
-  }
 
   const person = new Person({
     name,
     number,
   });
 
-  person.save().then((savedPerson) => {
-    res.status(201).json(savedPerson);
-  });
+  person
+    .save()
+    .then((savedPerson) => {
+      res.status(201).json(savedPerson);
+    })
+    .catch((error) => next(error));
 });
 
-app.put('/api/persons/:id', (req, res) => {
+app.put('/api/persons/:id', (req, res, next) => {
   const { id } = req.params;
 
   const { name, number } = req.body;
@@ -59,7 +58,11 @@ app.put('/api/persons/:id', (req, res) => {
     number,
   };
 
-  Person.findByIdAndUpdate(id, person, { new: true })
+  Person.findByIdAndUpdate(id, person, {
+    new: true,
+    runValidators: true,
+    context: 'query',
+  })
     .then((updatedPerson) => {
       res.json(updatedPerson);
     })
@@ -93,13 +96,15 @@ app.use((error, req, res, next) => {
   console.error(error.message);
 
   if (error.name === 'CastError') {
-    return res.status(400).send({ error: 'Invalid id format' });
+    return res.status(400).json({ error: 'Invalid id format' });
+  } else if (error.name === 'ValidationError') {
+    return res.status(400).json({ error: error.message });
   }
 
   next(error);
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT;
 
 app.listen(PORT, () => {
   console.log(`Server listening at port ${PORT}`);
